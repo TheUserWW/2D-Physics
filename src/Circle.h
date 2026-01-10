@@ -18,7 +18,7 @@ public:
         this->acceleration[0] = 0.0f;
         this->acceleration[1] = 0.0f;
     }
-    void draw() {
+    void draw() override {
         glBegin(GL_TRIANGLE_FAN);
 
         // 绘制圆心
@@ -36,9 +36,12 @@ public:
         glEnd();
     }
 
-    void update(float deltaTime, const gravitational_field& field, float aspect = 1.0f) {
-        // 注意：万有引力已经在外部通过applyGravitationalForce计算
-        // 这里只应用外部重力场，不重置加速度
+    void update(float deltaTime, const gravitational_field& field, float aspect = 1.0f) override {
+        // 重置加速度（只保留重力场的影响）
+        acceleration[0] = 0.0f;
+        acceleration[1] = 0.0f;
+        
+        // 应用重力场
         applyGravitationalField(field);
         
         // 更新速度
@@ -70,10 +73,6 @@ public:
         // 限制位置在边界内
         center_x = std::max(-x_bound + radius, std::min(x_bound - radius, center_x));
         center_y = std::max(-y_bound + radius, std::min(y_bound - radius, center_y));
-        
-        // 在更新完成后重置加速度，为下一帧做准备
-        acceleration[0] = 0.0f;
-        acceleration[1] = 0.0f;
     }
 
 
@@ -92,18 +91,26 @@ public:
         acceleration[1] += fy / get_mass();
     }
     
-    // 碰撞检测相关方法
-    bool checkCollision(const Circle& other) const {
-        float dx = center_x - other.center_x;
-        float dy = center_y - other.center_y;
+    // 碰撞检测相关方法 - override Object's abstract methods
+    bool checkCollision(const Object& other) const override {
+        // 尝试将other转换为Circle，如果不是Circle则返回false
+        const Circle* otherCircle = dynamic_cast<const Circle*>(&other);
+        if (!otherCircle) return false;
+        
+        float dx = center_x - otherCircle->center_x;
+        float dy = center_y - otherCircle->center_y;
         float distance = sqrtf(dx * dx + dy * dy);
-        return distance < (radius + other.radius);
+        return distance < (radius + otherCircle->radius);
     }
     
-    void resolveCollision(Circle& other) {
+    void resolveCollision(Object& other) override {
+        // 尝试将other转换为Circle，如果不是Circle则返回
+        Circle* otherCircle = dynamic_cast<Circle*>(&other);
+        if (!otherCircle) return;
+        
         // 计算碰撞法线
-        float dx = other.center_x - center_x;
-        float dy = other.center_y - center_y;
+        float dx = otherCircle->center_x - center_x;
+        float dy = otherCircle->center_y - center_y;
         float distance = sqrtf(dx * dx + dy * dy);
         
         if (distance == 0) return; // 避免除以零
@@ -112,18 +119,18 @@ public:
         float ny = dy / distance;
         
         // 分离重叠的圆
-        float overlap = (radius + other.radius) - distance;
+        float overlap = (radius + otherCircle->radius) - distance;
         if (overlap > 0) {
             float separation = overlap * 0.5f;
             center_x -= separation * nx;
             center_y -= separation * ny;
-            other.center_x += separation * nx;
-            other.center_y += separation * ny;
+            otherCircle->center_x += separation * nx;
+            otherCircle->center_y += separation * ny;
         }
         
         // 计算相对速度
-        float dvx = other.velocity[0] - velocity[0];
-        float dvy = other.velocity[1] - velocity[1];
+        float dvx = otherCircle->velocity[0] - velocity[0];
+        float dvy = otherCircle->velocity[1] - velocity[1];
         
         // 计算速度在法线方向的分量
         float velocityAlongNormal = dvx * nx + dvy * ny;
@@ -136,7 +143,7 @@ public:
         
         // 计算冲量
         float j = -(1 + restitution) * velocityAlongNormal;
-        j /= (1.0f / mass + 1.0f / other.mass);
+        j /= (1.0f / mass + 1.0f / otherCircle->mass);
         
         // 应用冲量
         float impulseX = j * nx;
@@ -144,13 +151,13 @@ public:
         
         velocity[0] -= impulseX / mass;
         velocity[1] -= impulseY / mass;
-        other.velocity[0] += impulseX / other.mass;
-        other.velocity[1] += impulseY / other.mass;
+        otherCircle->velocity[0] += impulseX / otherCircle->mass;
+        otherCircle->velocity[1] += impulseY / otherCircle->mass;
     }
     
     // 获取圆心坐标
-    float getCenterX() const override { return center_x; }
-    float getCenterY() const override { return center_y; }
+    float getCenterX() const { return center_x; }
+    float getCenterY() const { return center_y; }
     float getRadius() const { return radius; }
     
 private:

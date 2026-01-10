@@ -22,6 +22,8 @@ public:
         acceleration[0] = 0.0f;
         acceleration[1] = 0.0f;
     }
+    virtual ~Object() = default;
+    
     float get_mass() const { return mass; }
     const float* get_velocity() const { return velocity;}
     const float* get_acceleration() const { return acceleration;}
@@ -43,36 +45,11 @@ public:
         mass = m;
     }
     
-    // 计算两个物体之间的万有引力
-    void applyGravitationalForce(const Object& other) {
-        // 获取当前物体和其他物体的位置（假设子类有getCenterX和getCenterY方法）
-        float dx = other.getCenterX() - getCenterX();
-        float dy = other.getCenterY() - getCenterY();
-        float distanceSq = dx * dx + dy * dy;
-        
-        // 避免除以零和极小距离的情况
-        if (distanceSq < 0.01f) return;
-        
-        float distance = sqrtf(distanceSq);
-        
-        // 计算引力大小 F = G * m1 * m2 / r^2
-        float forceMagnitude = G * mass * other.mass / distanceSq;
-        
-        // 限制最大引力，避免数值不稳定
-        forceMagnitude = std::min(forceMagnitude, 1000.0f);
-        
-        // 计算引力方向单位向量
-        float forceX = forceMagnitude * dx / distance;
-        float forceY = forceMagnitude * dy / distance;
-        
-        // 应用力到当前物体
-        acceleration[0] += forceX / mass;
-        acceleration[1] += forceY / mass;
-    }
-    
-    // 虚函数，子类需要实现获取位置的方法
-    virtual float getCenterX() const = 0;
-    virtual float getCenterY() const = 0;
+    // Virtual methods that must be implemented by derived classes
+    virtual void update(float deltaTime, const gravitational_field& field, float aspect = 1.0f) = 0;
+    virtual void draw() = 0;
+    virtual bool checkCollision(const Object& other) const = 0;
+    virtual void resolveCollision(Object& other) = 0;
     
 protected:
     float mass;

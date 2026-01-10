@@ -3,8 +3,13 @@
 #include <bits/stdc++.h>
 #include "Circle.h"
 #include "textInfo.h"
+#include <vector>
+#include <memory>
+#include "imgui.h"
+#include "imgui_impl_glfw.h"
+#include "imgui_impl_opengl3.h"
 
-
+std::vector<std::unique_ptr<Object>> objList;
 
 gravitational_field gf;
 
@@ -14,7 +19,7 @@ int main(void)
     GLFWwindow* window;
 
 
-    gf.magnitude = 0;
+    gf.magnitude = 9.8;
     gf.direction = 270;
 
 
@@ -41,6 +46,19 @@ int main(void)
 
     std::cout<<glGetString(GL_VERSION)<<std::endl;
 
+    // 初始化ImGui
+    IMGUI_CHECKVERSION();
+    ImGui::CreateContext();
+    ImGuiIO& io = ImGui::GetIO(); (void)io;
+    io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;     // 启用键盘控制
+    
+    // 设置ImGui样式
+    ImGui::StyleColorsDark();
+    
+    // 初始化ImGui平台后端
+    ImGui_ImplGlfw_InitForOpenGL(window, true);
+    ImGui_ImplOpenGL3_Init("#version 130");
+
     // 设置正交投影矩阵以保持正确的宽高比
     int width, height;
     glfwGetFramebufferSize(window, &width, &height);
@@ -59,12 +77,12 @@ int main(void)
     glMatrixMode(GL_MODELVIEW);
     glLoadIdentity();
 
-    Circle *c = new Circle(0.0,0.0,0.1,100);
-    Circle *c2 = new Circle(1.1,1.0,0.1,100);
+    objList.push_back(std::make_unique<Circle>(0.0f, 0.0f, 0.1f, 100));
+    objList.push_back(std::make_unique<Circle>(1.1f, 1.0f, 0.1f, 100));
 
     // 设置圆的质量
-    c->setMass(7.75);
-    c2->setMass(7.7);
+    objList[0]->setMass(2.0f);
+    objList[1]->setMass(2.0f);
     // 时间变量
     double lastTime = glfwGetTime();
     
@@ -76,12 +94,78 @@ int main(void)
     /* Loop until the user closes the window */
     while (!glfwWindowShouldClose(window))
     {
+        // 开始ImGui帧
+        ImGui_ImplOpenGL3_NewFrame();
+        ImGui_ImplGlfw_NewFrame();
+        ImGui::NewFrame();
+        
         // 计算时间增量
         double currentTime = glfwGetTime();
         float deltaTime = static_cast<float>(currentTime - lastTime);
         lastTime = currentTime;
         
-        // 处理键盘输入来改变重力场
+        // Create embedded sidebar style
+        ImGui::SetNextWindowPos(ImVec2(0, 0));
+        ImGui::SetNextWindowSize(ImVec2(300, ImGui::GetIO().DisplaySize.y));
+        
+        ImGui::Begin("Physics Controls", nullptr, 
+                     ImGuiWindowFlags_NoTitleBar | 
+                     ImGuiWindowFlags_NoResize | 
+                     ImGuiWindowFlags_NoMove | 
+                     ImGuiWindowFlags_NoCollapse);
+        
+        // Gravity Field Control Section
+        if (ImGui::CollapsingHeader("Gravity Field", ImGuiTreeNodeFlags_DefaultOpen)) {
+            ImGui::Text("Magnitude: %.2f m/s²", gf.magnitude);
+            ImGui::SliderFloat("##GravityMagnitude", &gf.magnitude, 0.0f, 20.0f, "%.2f");
+            
+            ImGui::Text("Direction: %.1f°", gf.direction);
+            ImGui::SliderFloat("##GravityDirection", &gf.direction, 0.0f, 360.0f, "%.1f°");
+            
+            // Direction indicators
+            ImGui::Text("Direction Reference:");
+            ImGui::Text("↑ North: 90°");
+            ImGui::Text("→ East: 0°");
+            ImGui::Text("↓ South: 270°");
+            ImGui::Text("← West: 180°");
+            
+            // Quick direction buttons
+            ImGui::Text("Quick Direction:");
+            if (ImGui::Button("Up##1")) { gf.direction = 90.0f; } ImGui::SameLine();
+            if (ImGui::Button("Down##1")) { gf.direction = 270.0f; } ImGui::SameLine();
+            if (ImGui::Button("Left##1")) { gf.direction = 180.0f; } ImGui::SameLine();
+            if (ImGui::Button("Right##1")) { gf.direction = 0.0f; }
+            
+            // Preset gravity fields
+            ImGui::Text("Presets:");
+            if (ImGui::Button("Zero Gravity")) {
+                gf.magnitude = 0.0f;
+            }
+            ImGui::SameLine();
+            if (ImGui::Button("Earth Gravity")) {
+                gf.magnitude = 9.8f;
+                gf.direction = 270.0f;
+            }
+        }
+        
+        // Object Information Section
+        if (ImGui::CollapsingHeader("Objects", ImGuiTreeNodeFlags_DefaultOpen)) {
+            ImGui::Text("Total Objects: %zu", objList.size());
+            
+            for (size_t i = 0; i < objList.size(); ++i) {
+                ImGui::Text("Object %zu: Mass = %.2f kg", i + 1, objList[i]->get_mass());
+            }
+        }
+        
+        // Simulation Info Section
+        if (ImGui::CollapsingHeader("Simulation Info")) {
+            ImGui::Text("FPS: %.1f", ImGui::GetIO().Framerate);
+            ImGui::Text("Delta Time: %.3f s", deltaTime);
+        }
+        
+        ImGui::End();
+        
+        // 保留键盘控制（作为备用）
         if (glfwGetKey(window, GLFW_KEY_UP) == GLFW_PRESS) {
             gf.direction = 90.0f; // 向上
         }
@@ -109,28 +193,22 @@ int main(void)
         glClear(GL_COLOR_BUFFER_BIT);
 
 
-        // 在更新前应用相互引力
-        c->applyGravitationalForce(*c2);
-        c2->applyGravitationalForce(*c);
-        
-        // 调试信息：显示两个圆之间的距离
-        float dx = c2->getCenterX() - c->getCenterX();
-        float dy = c2->getCenterY() - c->getCenterY();
-        float distance = sqrtf(dx*dx + dy*dy);
-        std::cout << "distance: " << distance << std::endl;
-        
-        c->update(deltaTime, gf, aspect);
-        c2->update(deltaTime, gf, aspect);
+        objList[0]->update(deltaTime, gf, aspect);
+        objList[1]->update(deltaTime, gf, aspect);
 
         
         // 检测并处理碰撞
-        if (c->checkCollision(*c2)) {
-            c->resolveCollision(*c2);
+        if (objList[0]->checkCollision(*objList[1])) {
+            objList[0]->resolveCollision(*objList[1]);
         }
         
         // 绘制圆
-        c->draw();
-        c2->draw();
+        objList[0]->draw();
+        objList[1]->draw();
+        
+        // 渲染ImGui
+        ImGui::Render();
+        ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
         
         /* Swap front and back buffers */
         glfwSwapBuffers(window);
@@ -138,6 +216,11 @@ int main(void)
         /* Poll for and process events */
         glfwPollEvents();
     }
+
+    // 清理ImGui
+    ImGui_ImplOpenGL3_Shutdown();
+    ImGui_ImplGlfw_Shutdown();
+    ImGui::DestroyContext();
 
     glfwTerminate();
     return 0;
