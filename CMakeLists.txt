@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.31)
-project(OpenGL)
+project(2DPhysics)
 
 set(CMAKE_CXX_STANDARD 20)
 
@@ -16,45 +16,70 @@ set(GLFW_LIB_DIR "${CMAKE_SOURCE_DIR}/Dependencies/lib-mingw-w64")
 set(GLEW_INCLUDE_DIR "${CMAKE_SOURCE_DIR}/Dependencies/GLEW/include")
 set(GLEW_LIB_DIR "${CMAKE_SOURCE_DIR}/Dependencies/GLEW/lib/Release/x64")
 
-# Include GLFW and GLEW headers
-include_directories(${GLFW_INCLUDE_DIR} ${GLEW_INCLUDE_DIR})
+# Set ImGui dependencies paths
+set(IMGUI_INCLUDE_DIR "${CMAKE_SOURCE_DIR}/Dependencies/include/imgui")
+set(IMGUI_BACKENDS_DIR "${CMAKE_SOURCE_DIR}/Dependencies/include/imgui/backends")
 
-# Explicitly set source files
-set(SOURCES src/main.cpp src/textInfo.cpp)
+# Include GLFW, GLEW and ImGui headers
+include_directories(${GLFW_INCLUDE_DIR} ${GLEW_INCLUDE_DIR} ${IMGUI_INCLUDE_DIR} ${IMGUI_BACKENDS_DIR})
 
-# Verify source files exist
-foreach(source_file ${SOURCES})
-    if(NOT EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/${source_file})
-        message(FATAL_ERROR "Source file ${source_file} not found")
+# Add ImGui source files
+set(IMGUI_SOURCES
+    ${IMGUI_INCLUDE_DIR}/imgui.cpp
+    ${IMGUI_INCLUDE_DIR}/imgui_demo.cpp
+    ${IMGUI_INCLUDE_DIR}/imgui_draw.cpp
+    ${IMGUI_INCLUDE_DIR}/imgui_tables.cpp
+    ${IMGUI_INCLUDE_DIR}/imgui_widgets.cpp
+    ${IMGUI_BACKENDS_DIR}/imgui_impl_glfw.cpp
+    ${IMGUI_BACKENDS_DIR}/imgui_impl_opengl3.cpp
+)
+
+# Check if ImGui source files exist
+foreach(IMGUI_SOURCE ${IMGUI_SOURCES})
+    if(NOT EXISTS ${IMGUI_SOURCE})
+        message(WARNING "ImGui source file not found: ${IMGUI_SOURCE}")
     endif()
 endforeach()
 
-add_executable(OpenGL ${SOURCES})
+# Set project sources
+set(SOURCES src/main.cpp ${IMGUI_SOURCES} 2DPhysics.rc)
 
-# Link GLFW libraries with Windows-specific configuration
+add_executable(2DPhysics ${SOURCES})
+
+# Set resource file working directory to find icon files
+set_source_files_properties(2DPhysics.rc PROPERTIES
+    COMPILE_FLAGS "-I${CMAKE_SOURCE_DIR}"
+)
+
+# 设置为Windows子系统，隐藏控制台窗口
+set_target_properties(2DPhysics PROPERTIES WIN32_EXECUTABLE TRUE)
+
+# Add GLFW library directory
+target_link_directories(2DPhysics PRIVATE ${GLFW_LIB_DIR})
+
+# Link GLEW library with Windows-specific configuration
 if(WIN32)
-    # For Windows, link against the dynamic library
-    target_link_directories(OpenGL PRIVATE ${GLFW_LIB_DIR} ${GLEW_LIB_DIR})
-    target_link_libraries(OpenGL ${GLFW_LIB_DIR}/glfw3.dll ${GLEW_LIB_DIR}/glew32.lib)
+    # For Windows, link against the static library for pure static compilation
+    target_link_directories(2DPhysics PRIVATE ${GLEW_LIB_DIR})
+    target_link_libraries(2DPhysics ${GLEW_LIB_DIR}/glew32s.lib)
     
-    # Copy the DLLs to the output directory
-    add_custom_command(TARGET OpenGL POST_BUILD
-        COMMAND ${CMAKE_COMMAND} -E copy_if_different
-        "${GLFW_LIB_DIR}/glfw3.dll"
-        "$<TARGET_FILE_DIR:OpenGL>"
-        COMMENT "Copying glfw3.dll to output directory"
-    )
-    add_custom_command(TARGET OpenGL POST_BUILD
-        COMMAND ${CMAKE_COMMAND} -E copy_if_different
-        "${CMAKE_SOURCE_DIR}/Dependencies/GLEW/bin/Release/x64/glew32.dll"
-        "$<TARGET_FILE_DIR:OpenGL>"
-        COMMENT "Copying glew32.dll to output directory"
-    )
+    # Link GLFW and other required libraries
+    target_link_libraries(2DPhysics ${GLFW_LIB_DIR}/libglfw3.a opengl32 gdi32)
+    
+    # Add static compilation flags for GLEW
+    target_compile_definitions(2DPhysics PRIVATE GLEW_STATIC)
+    
+    # Check for GLFW library and provide download instructions if missing
+    if(NOT EXISTS "${CMAKE_SOURCE_DIR}/Dependencies/lib-mingw-w64/libglfw3.a")
+        message(WARNING "GLFW library files are missing. Please download GLFW binaries from https://www.glfw.org/download.html")
+        message(STATUS "For Windows, download the MinGW-w64 binaries and extract to Dependencies/lib-mingw-w64/")
+    endif()
+    
+    # Check for GLEW static library
+    if(NOT EXISTS "${CMAKE_SOURCE_DIR}/Dependencies/GLEW/lib/Release/x64/glew32s.lib")
+        message(WARNING "GLEW static library (glew32s.lib) is required for static compilation")
+    endif()
 else()
     # For other platforms, use the static library
-    target_link_directories(OpenGL PRIVATE ${GLFW_LIB_DIR})
-    target_link_libraries(OpenGL glfw3)
+    target_link_libraries(2DPhysics glfw)
 endif()
-
-# Add required Windows libraries
-target_link_libraries(OpenGL opengl32 gdi32)
