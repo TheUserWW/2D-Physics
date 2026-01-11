@@ -34,6 +34,15 @@ bool circleCreationMode = false;
 bool circleButtonPressed = false;
 bool mouseWasPressed = false;
 
+// 物体拖拽相关变量
+bool isDragging = false;
+int draggedObjectIndex = -1;
+float dragOffsetX = 0.0f;
+float dragOffsetY = 0.0f;
+double lastDragTime = 0.0f;
+float lastDragX = 0.0f;
+float lastDragY = 0.0f;
+
 
 int main(void)
 {
@@ -59,11 +68,16 @@ int main(void)
     }
 
 #ifdef _WIN32
-    g_windowIcon = (HICON)LoadImageA(NULL, "d:\\Documents\\C++ project\\2DPhysics\\assets\\icon.ico", IMAGE_ICON, 0, 0, LR_LOADFROMFILE | LR_DEFAULTSIZE);
+    // 从文件加载自定义图标
+    HINSTANCE hInstance = GetModuleHandle(NULL);
+    HICON g_windowIcon = (HICON)LoadImageA(hInstance, "icon.ico", IMAGE_ICON, 0, 0, LR_LOADFROMFILE | LR_DEFAULTSIZE);
+    
     if (g_windowIcon) {
         HWND hwnd = glfwGetWin32Window(window);
         SendMessage(hwnd, WM_SETICON, ICON_BIG, (LPARAM)g_windowIcon);
         SendMessage(hwnd, WM_SETICON, ICON_SMALL, (LPARAM)g_windowIcon);
+        // 额外设置应用程序图标
+        SendMessage(hwnd, WM_SETICON, ICON_SMALL2, (LPARAM)g_windowIcon);
     }
 #endif
 
@@ -116,11 +130,28 @@ int main(void)
     objList[1]->setMass(2.0f);
     // 时间变量
     double lastTime = glfwGetTime();
+    float timeScale = 1.0f; // 时间流速控制变量
+    bool vSyncEnabled = true; // 垂直同步设置
     
+    // 设置初始垂直同步
+    glfwSwapInterval(vSyncEnabled ? 1 : 0);
 
-    // 重新获取当前窗口的宽高比（使用已有的变量）
-    glfwGetFramebufferSize(window, &width, &height);
-    aspect = (float)width / (float)height;
+    // 窗口大小变化回调
+    glfwSetWindowSizeCallback(window, [](GLFWwindow* window, int width, int height) {
+        glViewport(0, 0, width, height);
+        
+        // 重新计算正交投影
+        float aspect = (float)width / (float)height;
+        glMatrixMode(GL_PROJECTION);
+        glLoadIdentity();
+        if (aspect > 1.0) {
+            glOrtho(-aspect, aspect, -1.0, 1.0, -1.0, 1.0);
+        } else {
+            glOrtho(-1.0, 1.0, -1.0/aspect, 1.0/aspect, -1.0, 1.0);
+        }
+        glMatrixMode(GL_MODELVIEW);
+        glLoadIdentity();
+    });
 
     /* Loop until the user closes the window */
     while (!glfwWindowShouldClose(window))
@@ -132,7 +163,7 @@ int main(void)
         
         // 计算时间增量
         double currentTime = glfwGetTime();
-        float deltaTime = static_cast<float>(currentTime - lastTime);
+        float deltaTime = static_cast<float>(currentTime - lastTime) * timeScale;
         lastTime = currentTime;
         
         // Create embedded sidebar style
@@ -184,7 +215,15 @@ int main(void)
             ImGui::Text("Total Objects: %zu", objList.size());
             
             for (size_t i = 0; i < objList.size(); ++i) {
-                ImGui::Text("Object %zu: Mass = %.2f kg", i + 1, objList[i]->get_mass());
+                ImGui::Text("Object %zu:", i + 1);
+                ImGui::SameLine();
+                
+                float currentMass = objList[i]->get_mass();
+                std::string massLabel = "##Mass" + std::to_string(i);
+                ImGui::SetNextItemWidth(100.0f); // 设置质量输入框宽度
+                if (ImGui::DragFloat(massLabel.c_str(), &currentMass, 0.1f, 0.1f, 100.0f, "%.2f kg")) {
+                    objList[i]->setMass(currentMass);
+                }
                 ImGui::SameLine();
                 
                 // 添加删除按钮
@@ -202,6 +241,12 @@ int main(void)
         if (ImGui::CollapsingHeader("Simulation Info")) {
             ImGui::Text("FPS: %.1f", ImGui::GetIO().Framerate);
             ImGui::Text("Delta Time: %.3f s", deltaTime);
+            ImGui::Text("Time Scale: %.2fx", timeScale);
+            ImGui::SliderFloat("##TimeScale", &timeScale, 0.0f, 2.0f, "%.2fx");
+            ImGui::Checkbox("Vertical Sync", &vSyncEnabled);
+            if (ImGui::IsItemEdited()) {
+                glfwSwapInterval(vSyncEnabled ? 1 : 0);
+            }
         }
         
         // Creation Tools Section
@@ -279,6 +324,88 @@ int main(void)
         /* Swap front and back buffers */
         glfwSwapBuffers(window);
 
+        // 鼠标拖拽物体功能
+        if (!circleCreationMode) {
+            int mouseState = glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_LEFT);
+            double mouseX, mouseY;
+            glfwGetCursorPos(window, &mouseX, &mouseY);
+            
+            // 获取窗口尺寸
+            int windowWidth, windowHeight;
+            glfwGetFramebufferSize(window, &windowWidth, &windowHeight);
+            
+            // 将鼠标坐标转换为OpenGL坐标
+            float glX, glY;
+            float currentAspect = (float)windowWidth / (float)windowHeight;
+            if (currentAspect > 1.0f) {
+                glX = (mouseX / windowWidth * 2.0f - 1.0f) * currentAspect;
+                glY = 1.0f - mouseY / windowHeight * 2.0f;
+            } else {
+                glX = mouseX / windowWidth * 2.0f - 1.0f;
+                glY = (1.0f - mouseY / windowHeight * 2.0f) / currentAspect;
+            }
+            
+            // 开始拖拽
+            if (mouseState == GLFW_PRESS && !isDragging) {
+                // 检查鼠标是否在某个物体上
+                for (size_t i = 0; i < objList.size(); ++i) {
+                    // 简单的碰撞检测（假设是圆形）
+                    float dx = glX - objList[i]->get_position_x();
+                    float dy = glY - objList[i]->get_position_y();
+                    float distance = sqrt(dx*dx + dy*dy);
+                    
+                    // 假设所有物体都是圆形，半径为0.1f（可以根据实际情况调整）
+                    if (distance < 0.1f) {
+                        isDragging = true;
+                        draggedObjectIndex = i;
+                        dragOffsetX = dx;
+                        dragOffsetY = dy;
+                        // 拖拽开始时重置物体速度，避免抽搐
+                        objList[i]->setVelocity(0.0f, 0.0f);
+                        break;
+                    }
+                }
+            }
+            // 拖拽中
+            else if (mouseState == GLFW_PRESS && isDragging && draggedObjectIndex != -1) {
+                // 更新拖拽物体的位置
+                objList[draggedObjectIndex]->setPosition(glX - dragOffsetX, glY - dragOffsetY);
+                // 拖拽过程中保持速度为0，避免物理模拟影响
+                objList[draggedObjectIndex]->setVelocity(0.0f, 0.0f);
+                
+                // 记录拖拽位置和时间，用于计算惯性
+                lastDragX = glX - dragOffsetX;
+                lastDragY = glY - dragOffsetY;
+                lastDragTime = glfwGetTime();
+            }
+            // 结束拖拽
+            else if (mouseState == GLFW_RELEASE && isDragging) {
+                // 计算拖拽结束时的速度，赋予物体惯性
+                static double lastDragTime = glfwGetTime();
+                static float lastDragX = 0.0f;
+                static float lastDragY = 0.0f;
+                
+                double currentTime = glfwGetTime();
+                float dragDeltaTime = static_cast<float>(currentTime - lastDragTime);
+                
+                if (dragDeltaTime > 0.0f && draggedObjectIndex != -1) {
+                    float velocityX = (glX - lastDragX) / dragDeltaTime;
+                    float velocityY = (glY - lastDragY) / dragDeltaTime;
+                    
+                    // 限制最大速度，避免惯性过大
+                    const float maxVelocity = 5.0f;
+                    velocityX = std::clamp(velocityX, -maxVelocity, maxVelocity);
+                    velocityY = std::clamp(velocityY, -maxVelocity, maxVelocity);
+                    
+                    // 赋予物体惯性
+                    objList[draggedObjectIndex]->setVelocity(velocityX, velocityY);
+                }
+                
+                isDragging = false;
+                draggedObjectIndex = -1;
+            }
+        }
+        
         // 鼠标点击检测 - 圆形生成功能
         if (circleCreationMode) {
             // 检查鼠标左键点击
@@ -295,12 +422,13 @@ int main(void)
                 
                 // 将鼠标坐标转换为OpenGL坐标
                 float glX, glY;
-                if (aspect > 1.0f) {
-                    glX = (mouseX / windowWidth * 2.0f - 1.0f) * aspect;
+                float currentAspect = (float)windowWidth / (float)windowHeight;
+                if (currentAspect > 1.0f) {
+                    glX = (mouseX / windowWidth * 2.0f - 1.0f) * currentAspect;
                     glY = 1.0f - mouseY / windowHeight * 2.0f;
                 } else {
                     glX = mouseX / windowWidth * 2.0f - 1.0f;
-                    glY = (1.0f - mouseY / windowHeight * 2.0f) / aspect;
+                    glY = (1.0f - mouseY / windowHeight * 2.0f) / currentAspect;
                 }
                 
                 // 在鼠标位置生成圆形
