@@ -94,7 +94,7 @@ cmake --build . --config Release
 
 ## Dependencies
 
-- **GLFW**: Window creation and input handling
-- **GLEW**: OpenGL extension loading
+- **GLFW**: Download link: https://www.glfw.org/download.html
+- **GLEW**: Download link: https://glew.sourceforge.net/
 - **ImGui**: Immediate mode graphical user interface
 - **OpenGL**: Graphics rendering API
