@@ -96,5 +96,4 @@ cmake --build . --config Release
 
 - **GLFW**: Download link: https://www.glfw.org/download.html
 - **GLEW**: Download link: https://glew.sourceforge.net/
-- **ImGui**: Immediate mode graphical user interface
-- **OpenGL**: Graphics rendering API
+- **ImGui**: Project link: https://github.com/ocornut/imgui
