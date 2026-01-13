@@ -28,11 +28,16 @@ HICON g_windowIcon = NULL;
 #endif
 
 gravitational_field gf;
+electric_field ef;
 
 // 圆形生成按钮状态
 bool circleCreationMode = false;
 bool circleButtonPressed = false;
 bool mouseWasPressed = false;
+
+// 圆形创建参数
+float newCircleRadius = 0.1f;
+float newCircleMass = 1.0f;
 
 // 物体拖拽相关变量
 bool isDragging = false;
@@ -43,6 +48,24 @@ double lastDragTime = 0.0f;
 float lastDragX = 0.0f;
 float lastDragY = 0.0f;
 
+void ApplyUniversalGravitation(std::vector<std::unique_ptr<Object>>& list) {
+    for (int i = 0; i < list.size(); i++) {
+        for (int j = i + 1; j < list.size(); j++) {
+            float dx = list[j]->get_position_x() - list[i]->get_position_x();
+            float dy = list[j]->get_position_y() - list[i]->get_position_y();
+            float distance = sqrtf(dx * dx + dy * dy);
+            
+            if (distance < 0.001f) continue;
+            
+            float forceMagnitude = G * list[i]->get_mass() * list[j]->get_mass() / (distance * distance);
+            float fx = forceMagnitude * dx / distance;
+            float fy = forceMagnitude * dy / distance;
+            
+            list[i]->applyForce(fx, fy);
+            list[j]->applyForce(-fx, -fy);
+        }
+    }
+}
 
 int main(void)
 {
@@ -51,6 +74,10 @@ int main(void)
 
     gf.magnitude = 9.8;
     gf.direction = 270;
+
+    ef.magnitude = 0.0;
+    ef.direction = 0.0;
+    ef.positive = true;
 
 
     /* Initialize the library */
@@ -209,7 +236,28 @@ int main(void)
                 gf.direction = 270.0f;
             }
         }
-        
+
+
+        if (ImGui::CollapsingHeader("Electric Field (Developing)", ImGuiTreeNodeFlags_DefaultOpen)) {
+            ImGui::Text("Magnitude: %.2f N/C", ef.magnitude);
+            ImGui::SliderFloat("##ElectricMagnitude", &ef.magnitude, 0.0f, 20.0f, "%.2f");
+            // Quick direction buttons
+            ImGui::Text("Quick Direction:");
+            if (ImGui::Button("Up##2")) { ef.direction = 90.0f; } ImGui::SameLine();
+            if (ImGui::Button("Down##2")) { ef.direction = 270.0f; } ImGui::SameLine();
+            if (ImGui::Button("Left##2")) { ef.direction = 180.0f; } ImGui::SameLine();
+            if (ImGui::Button("Right##2")) { ef.direction = 0.0f; }
+
+
+            // Preset gravity fields
+            ImGui::Text("Presets:");
+            if (ImGui::Button("Zero Electric Field")) {
+                ef.magnitude = 0.0f;
+            }
+        }
+
+
+
         // Object Information Section
         if (ImGui::CollapsingHeader("Objects", ImGuiTreeNodeFlags_DefaultOpen)) {
             ImGui::Text("Total Objects: %zu", objList.size());
@@ -271,6 +319,22 @@ int main(void)
             }
             
             ImGui::Text("Status: %s", circleCreationMode ? "Active" : "Inactive");
+            
+            // Circle parameters
+            ImGui::Separator();
+            ImGui::Text("Circle Parameters:");
+            
+            ImGui::Text("Radius: %.3f", newCircleRadius);
+            ImGui::SliderFloat("##CircleRadius", &newCircleRadius, 0.01f, 0.5f, "%.3f");
+            ImGui::SameLine();
+            ImGui::SetNextItemWidth(80.0f);
+            ImGui::InputFloat("##CircleRadiusInput", &newCircleRadius, 0.01f, 0.1f, "%.3f");
+            
+            ImGui::Text("Mass: %.2f kg", newCircleMass);
+            ImGui::SliderFloat("##CircleMass", &newCircleMass, 0.1f, 100.0f, "%.2f");
+            ImGui::SameLine();
+            ImGui::SetNextItemWidth(80.0f);
+            ImGui::InputFloat("##CircleMassInput", &newCircleMass, 0.1f, 1.0f, "%.2f");
         }
         
         ImGui::End();
@@ -303,6 +367,10 @@ int main(void)
         glClear(GL_COLOR_BUFFER_BIT);
 
 
+        if (!objList.empty()) {
+            ApplyUniversalGravitation(objList);
+        }
+        
         for (int i = 0; i < objList.size(); i++) {
             objList[i]->update(deltaTime, gf, aspect);
         }
@@ -381,10 +449,6 @@ int main(void)
             // 结束拖拽
             else if (mouseState == GLFW_RELEASE && isDragging) {
                 // 计算拖拽结束时的速度，赋予物体惯性
-                static double lastDragTime = glfwGetTime();
-                static float lastDragX = 0.0f;
-                static float lastDragY = 0.0f;
-                
                 double currentTime = glfwGetTime();
                 float dragDeltaTime = static_cast<float>(currentTime - lastDragTime);
                 
@@ -432,8 +496,8 @@ int main(void)
                 }
                 
                 // 在鼠标位置生成圆形
-                objList.push_back(std::make_unique<Circle>(glX, glY, 0.1f, 100));
-                objList.back()->setMass(1.0f);
+                objList.push_back(std::make_unique<Circle>(glX, glY, newCircleRadius, 100));
+                objList.back()->setMass(newCircleMass);
                 
             }
             

@@ -35,6 +35,18 @@ public:
         basicUpdate(deltaTime, field, aspect);
     }
 
+    void update(float deltaTime, const electric_field& field, float aspect = 1.0f) {
+        // 计算电场力
+        float angle_rad = field.direction * PI / 180.0f;
+        float fx = charge * field.magnitude * cosf(angle_rad);
+        float fy = charge * field.magnitude * sinf(angle_rad);
+        
+        // 应用电场力
+        applyForce(fx, fy);
+        
+        // 使用基类的通用更新逻辑
+        basicUpdate(deltaTime, gravitational_field{0, 0}, aspect);
+    }
 
     // 这些方法现在在基类中实现，不需要重复定义
     

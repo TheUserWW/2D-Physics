@@ -13,6 +13,12 @@ struct gravitational_field {
     float direction;
 };
 
+struct electric_field {
+    float magnitude;
+    float direction;
+    bool positive;
+};
+
 class Object {
 
 public:
@@ -99,12 +105,16 @@ public:
     
     // 通用的更新方法模板
     void basicUpdate(float deltaTime, const gravitational_field& field, float aspect = 1.0f) {
-        // 重置加速度（只保留重力场的影响）
-        acceleration[0] = 0.0f;
-        acceleration[1] = 0.0f;
+        // 保留当前加速度（包括万有引力产生的加速度）
+        float savedAccX = acceleration[0];
+        float savedAccY = acceleration[1];
         
         // 应用重力场
         applyGravitationalField(field);
+        
+        // 将保留的加速度（万有引力）加回来
+        acceleration[0] += savedAccX;
+        acceleration[1] += savedAccY;
         
         // 更新速度
         velocity[0] += acceleration[0] * deltaTime;
@@ -114,24 +124,32 @@ public:
         position_x += velocity[0] * deltaTime;
         position_y += velocity[1] * deltaTime;
         
+        // 重置加速度为0，为下一帧做准备
+        acceleration[0] = 0.0f;
+        acceleration[1] = 0.0f;
+        
         // 处理边界碰撞
         handleBoundaryCollision(aspect);
     }
-    
+
+
+
+
+
     // Virtual methods that must be implemented by derived classes
     virtual void update(float deltaTime, const gravitational_field& field, float aspect = 1.0f) = 0;
     virtual void draw() = 0;
     virtual bool checkCollision(const Object& other) const = 0;
     virtual void resolveCollision(Object& other) = 0;
-    
-    // 新增的虚方法，用于边界处理
     virtual void getBoundingBox(float& left, float& right, float& top, float& bottom) const = 0;
     virtual void constrainToBounds(float x_bound, float y_bound) = 0;
+
     
 protected:
     float mass;
     float position_x;
     float position_y;
+    float charge;
     float velocity[2];
     float acceleration[2];
 };
