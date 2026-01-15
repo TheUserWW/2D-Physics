@@ -54,7 +54,7 @@ The simulation implements realistic physics including:
 
 ### Prerequisites
 - CMake 3.10+
-- C++17 compatible compiler
+- C++23 compatible compiler
 - OpenGL development libraries
 - Windows SDK (for Windows builds)
 
