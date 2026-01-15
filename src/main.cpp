@@ -51,7 +51,7 @@ void ApplyUniversalGravitation(std::vector<std::unique_ptr<Object>>& list) {
     for (size_t i = 0; i < list.size(); i++) {
         for (int j = i + 1; j < list.size(); j++) {
             const float dx = list.at(j)->get_position_x() - list.at(i)->get_position_x();
-            const float dy = list.at(i)->get_position_y() - list.at(i)->get_position_y();
+            const float dy = list.at(j)->get_position_y() - list.at(i)->get_position_y();
 
             const float distance = sqrtf(dx * dx + dy * dy);
             
