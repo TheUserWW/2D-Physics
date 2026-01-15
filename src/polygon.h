@@ -115,7 +115,7 @@ private:
             float angle = 2.0f * PI * i / vertexs;
             float x = get_position_x() + distance_from_cm * cosf(angle);
             float y = get_position_y() + distance_from_cm * sinf(angle);
-            vertices.push_back({x, y});
+            vertices.emplace_back(x, y);
         }
     }
     

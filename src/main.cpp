@@ -5,21 +5,20 @@
 #define GLFW_EXPOSE_NATIVE_WIN32
 #include <GLFW/glfw3native.h>
 #endif
-#include <bits/stdc++.h>
-#include "Circle.h"
-#include "polygon.h"
-#include "textInfo.h"
 #include <vector>
 #include <memory>
+#include <iostream>
+#include <print>
+#include "Circle.h"
+#include "polygon.h"
 #include "imgui.h"
 #include "imgui_impl_glfw.h"
 #include "imgui_impl_opengl3.h"
-#include <locale>
-#include <codecvt>
 
 #ifdef _WIN32
 #include <windows.h>
 #endif
+
 
 std::vector<std::unique_ptr<Object>> objList;
 
@@ -49,11 +48,12 @@ float lastDragX = 0.0f;
 float lastDragY = 0.0f;
 
 void ApplyUniversalGravitation(std::vector<std::unique_ptr<Object>>& list) {
-    for (int i = 0; i < list.size(); i++) {
+    for (size_t i = 0; i < list.size(); i++) {
         for (int j = i + 1; j < list.size(); j++) {
-            float dx = list[j]->get_position_x() - list[i]->get_position_x();
-            float dy = list[j]->get_position_y() - list[i]->get_position_y();
-            float distance = sqrtf(dx * dx + dy * dy);
+            const float dx = list.at(j)->get_position_x() - list.at(i)->get_position_x();
+            const float dy = list.at(i)->get_position_y() - list.at(i)->get_position_y();
+
+            const float distance = sqrtf(dx * dx + dy * dy);
             
             if (distance < 0.001f) continue;
             
@@ -61,17 +61,14 @@ void ApplyUniversalGravitation(std::vector<std::unique_ptr<Object>>& list) {
             float fx = forceMagnitude * dx / distance;
             float fy = forceMagnitude * dy / distance;
             
-            list[i]->applyForce(fx, fy);
-            list[j]->applyForce(-fx, -fy);
+            list.at(i)->applyForce(fx, fy);
+            list.at(j)->applyForce(-fx, -fy);
         }
     }
 }
 
 int main(void)
 {
-    GLFWwindow* window;
-
-
     gf.magnitude = 9.8;
     gf.direction = 270;
 
@@ -87,24 +84,39 @@ int main(void)
 
 
     /* Create a windowed mode window and its OpenGL context */
-    window = glfwCreateWindow(1920, 1200, "2D Physics", NULL, NULL);
+    GLFWwindow *window = glfwCreateWindow(1920, 1200, "2D Physics", NULL, NULL);
     if (!window)
     {
         glfwTerminate();
         return -1;
     }
 
+    // 在 main 函数中，窗口创建后添加延迟
 #ifdef _WIN32
+    // 等待窗口完全初始化
+    glfwPollEvents();
+    Sleep(100); // 短暂延迟确保窗口完全创建
+
     // 从文件加载自定义图标
     HINSTANCE hInstance = GetModuleHandle(NULL);
-    HICON g_windowIcon = (HICON)LoadImageA(hInstance, "icon.ico", IMAGE_ICON, 0, 0, LR_LOADFROMFILE | LR_DEFAULTSIZE);
-    
+    HICON g_windowIcon = (HICON)LoadImageA(
+        hInstance,
+        "icon.ico",
+        IMAGE_ICON,
+        0, 0,
+        LR_LOADFROMFILE | LR_DEFAULTSIZE
+    );
+
     if (g_windowIcon) {
         HWND hwnd = glfwGetWin32Window(window);
-        SendMessage(hwnd, WM_SETICON, ICON_BIG, (LPARAM)g_windowIcon);
-        SendMessage(hwnd, WM_SETICON, ICON_SMALL, (LPARAM)g_windowIcon);
-        // 额外设置应用程序图标
-        SendMessage(hwnd, WM_SETICON, ICON_SMALL2, (LPARAM)g_windowIcon);
+        if (hwnd) {
+            SendMessage(hwnd, WM_SETICON, ICON_BIG, (LPARAM)g_windowIcon);
+            SendMessage(hwnd, WM_SETICON, ICON_SMALL, (LPARAM)g_windowIcon);
+
+            // 强制窗口重绘
+            SetWindowPos(hwnd, NULL, 0, 0, 0, 0,
+                        SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER | SWP_FRAMECHANGED);
+        }
     }
 #endif
 
@@ -112,7 +124,7 @@ int main(void)
     glfwMakeContextCurrent(window);
 
     if (glewInit() != GLEW_OK) {
-        std::cout<<"Error"<<std::endl;;
+        std::println("Error");
     }
 
     std::cout<<glGetString(GL_VERSION)<<std::endl;
@@ -134,12 +146,16 @@ int main(void)
     // 设置正交投影矩阵以保持正确的宽高比
     int width, height;
     glfwGetFramebufferSize(window, &width, &height);
-    glViewport(0, 0, width, height);
     
-    // 设置正交投影，根据窗口宽高比调整
+    // 设置视口，为UI留出左侧空间
+    const float uiWidthPixels = 300.0f; // UI宽度（像素）
+    const float simulationWidth = width - uiWidthPixels;
+    glViewport(uiWidthPixels, 0, simulationWidth, height);
+    
+    // 设置正交投影，根据模拟区域宽高比调整
     glMatrixMode(GL_PROJECTION);
     glLoadIdentity();
-    float aspect = (float)width / (float)height;
+    float aspect = (float)simulationWidth / (float)height;
     if (aspect > 1.0) {
         glOrtho(-aspect, aspect, -1.0, 1.0, -1.0, 1.0);
     } else {
@@ -149,12 +165,6 @@ int main(void)
     glMatrixMode(GL_MODELVIEW);
     glLoadIdentity();
 
-    objList.push_back(std::make_unique<Circle>(0.0f, 0.0f, 0.1f, 100));
-    objList.push_back(std::make_unique<Circle>(1.1f, 1.0f, 0.1f, 100));
-
-    // 设置圆的质量
-    objList[0]->setMass(2.0f);
-    objList[1]->setMass(2.0f);
     // 时间变量
     double lastTime = glfwGetTime();
     float timeScale = 1.0f; // 时间流速控制变量
@@ -165,10 +175,13 @@ int main(void)
 
     // 窗口大小变化回调
     glfwSetWindowSizeCallback(window, [](GLFWwindow* window, int width, int height) {
-        glViewport(0, 0, width, height);
+        // 更新视口，为UI留出左侧空间
+        const float uiWidthPixels = 300.0f; // UI宽度（像素）
+        const float simulationWidth = width - uiWidthPixels;
+        glViewport(uiWidthPixels, 0, simulationWidth, height);
         
         // 重新计算正交投影
-        float aspect = (float)width / (float)height;
+        float aspect = (float)simulationWidth / (float)height;
         glMatrixMode(GL_PROJECTION);
         glLoadIdentity();
         if (aspect > 1.0) {
@@ -193,9 +206,10 @@ int main(void)
         float deltaTime = static_cast<float>(currentTime - lastTime) * timeScale;
         lastTime = currentTime;
         
-        // Create embedded sidebar style
+        // 创建侧边栏UI，固定在左侧，不覆盖模拟画面
+        const float uiWidth = 300.0f; // UI宽度
         ImGui::SetNextWindowPos(ImVec2(0, 0));
-        ImGui::SetNextWindowSize(ImVec2(300, ImGui::GetIO().DisplaySize.y));
+        ImGui::SetNextWindowSize(ImVec2(uiWidth, ImGui::GetIO().DisplaySize.y));
         
         ImGui::Begin("Physics Controls", nullptr, 
                      ImGuiWindowFlags_NoTitleBar | 
@@ -327,13 +341,13 @@ int main(void)
             ImGui::Text("Radius: %.3f", newCircleRadius);
             ImGui::SliderFloat("##CircleRadius", &newCircleRadius, 0.01f, 0.5f, "%.3f");
             ImGui::SameLine();
-            ImGui::SetNextItemWidth(80.0f);
+            ImGui::SetNextItemWidth(90.0f);
             ImGui::InputFloat("##CircleRadiusInput", &newCircleRadius, 0.01f, 0.1f, "%.3f");
             
             ImGui::Text("Mass: %.2f kg", newCircleMass);
             ImGui::SliderFloat("##CircleMass", &newCircleMass, 0.1f, 100.0f, "%.2f");
             ImGui::SameLine();
-            ImGui::SetNextItemWidth(80.0f);
+            ImGui::SetNextItemWidth(90.0f);
             ImGui::InputFloat("##CircleMassInput", &newCircleMass, 0.1f, 1.0f, "%.2f");
         }
         
@@ -372,19 +386,24 @@ int main(void)
         }
         
         for (int i = 0; i < objList.size(); i++) {
-            objList[i]->update(deltaTime, gf, aspect);
+            objList.at(i)->update(deltaTime, gf, aspect);
         }
         // 改进的碰撞检测：检查所有物体对
-        for (int j = 0; j < objList.size(); j++) {
-            for (int k = j + 1; k < objList.size(); k++) {
-                if (objList[j]->checkCollision(*objList[k])) {
-                    objList[j]->resolveCollision(*objList[k]);
+        for (size_t j = 0; j < objList.size(); j++) {
+            for (size_t k = j + 1; k < objList.size(); k++) {
+                if (objList.at(j)->checkCollision(*objList[k])) {
+                    objList.at(j)->resolveCollision(*objList[k]);
                 }
             }
         }
-        for (int k = 0; k < objList.size(); k ++) {
-            objList[k]->draw();
+
+
+        //Draw each object
+        for (size_t k = 0; k < objList.size(); k ++) {
+            objList.at(k)->draw();
         }
+
+
         // 渲染ImGui
         ImGui::Render();
         ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
@@ -402,24 +421,31 @@ int main(void)
             int windowWidth, windowHeight;
             glfwGetFramebufferSize(window, &windowWidth, &windowHeight);
             
-            // 将鼠标坐标转换为OpenGL坐标
-            float glX, glY;
-            float currentAspect = (float)windowWidth / (float)windowHeight;
-            if (currentAspect > 1.0f) {
-                glX = (mouseX / windowWidth * 2.0f - 1.0f) * currentAspect;
-                glY = 1.0f - mouseY / windowHeight * 2.0f;
-            } else {
-                glX = mouseX / windowWidth * 2.0f - 1.0f;
-                glY = (1.0f - mouseY / windowHeight * 2.0f) / currentAspect;
-            }
+            // 将鼠标坐标转换为OpenGL坐标（考虑UI区域偏移）
+                float glX, glY;
+                const float uiWidthPixels = 300.0f;
+                const float simulationWidth = windowWidth - uiWidthPixels;
+                
+                // 调整鼠标X坐标，减去UI区域宽度
+                float adjustedMouseX = mouseX - uiWidthPixels;
+                if (adjustedMouseX < 0) adjustedMouseX = 0; // 确保不超出模拟区域
+                
+                float currentAspect = (float)simulationWidth / (float)windowHeight;
+                if (currentAspect > 1.0f) {
+                    glX = (adjustedMouseX / simulationWidth * 2.0f - 1.0f) * currentAspect;
+                    glY = 1.0f - mouseY / windowHeight * 2.0f;
+                } else {
+                    glX = adjustedMouseX / simulationWidth * 2.0f - 1.0f;
+                    glY = (1.0f - mouseY / windowHeight * 2.0f) / currentAspect;
+                }
             
             // 开始拖拽
             if (mouseState == GLFW_PRESS && !isDragging) {
                 // 检查鼠标是否在某个物体上
                 for (size_t i = 0; i < objList.size(); ++i) {
                     // 简单的碰撞检测（假设是圆形）
-                    float dx = glX - objList[i]->get_position_x();
-                    float dy = glY - objList[i]->get_position_y();
+                    const float dx = glX - objList.at(i)->get_position_x();
+                    const float dy = glY - objList.at(i)->get_position_y();
                     float distance = sqrt(dx*dx + dy*dy);
                     
                     // 假设所有物体都是圆形，半径为0.1f（可以根据实际情况调整）
@@ -429,7 +455,7 @@ int main(void)
                         dragOffsetX = dx;
                         dragOffsetY = dy;
                         // 拖拽开始时重置物体速度，避免抽搐
-                        objList[i]->setVelocity(0.0f, 0.0f);
+                        objList.at(i)->setVelocity(0.0f, 0.0f);
                         break;
                     }
                 }
@@ -437,9 +463,9 @@ int main(void)
             // 拖拽中
             else if (mouseState == GLFW_PRESS && isDragging && draggedObjectIndex != -1) {
                 // 更新拖拽物体的位置
-                objList[draggedObjectIndex]->setPosition(glX - dragOffsetX, glY - dragOffsetY);
+                objList.at(draggedObjectIndex)->setPosition(glX - dragOffsetX, glY - dragOffsetY);
                 // 拖拽过程中保持速度为0，避免物理模拟影响
-                objList[draggedObjectIndex]->setVelocity(0.0f, 0.0f);
+                objList.at(draggedObjectIndex)->setVelocity(0.0f, 0.0f);
                 
                 // 记录拖拽位置和时间，用于计算惯性
                 lastDragX = glX - dragOffsetX;
@@ -462,7 +488,7 @@ int main(void)
                     velocityY = std::clamp(velocityY, -maxVelocity, maxVelocity);
                     
                     // 赋予物体惯性
-                    objList[draggedObjectIndex]->setVelocity(velocityX, velocityY);
+                    objList.at(draggedObjectIndex)->setVelocity(velocityX, velocityY);
                 }
                 
                 isDragging = false;
@@ -476,29 +502,39 @@ int main(void)
             int mouseState = glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_LEFT);
             
             if (mouseState == GLFW_PRESS && !mouseWasPressed) {
-                // 获取鼠标位置
-                double mouseX, mouseY;
-                glfwGetCursorPos(window, &mouseX, &mouseY);
-                
-                // 获取窗口尺寸
-                int windowWidth, windowHeight;
-                glfwGetFramebufferSize(window, &windowWidth, &windowHeight);
-                
-                // 将鼠标坐标转换为OpenGL坐标
+                // 检查鼠标是否在UI上，避免在UI上生成圆形
+                ImGuiIO& io = ImGui::GetIO();
+                if (!io.WantCaptureMouse) {
+                    // 获取鼠标位置
+                    double mouseX, mouseY;
+                    glfwGetCursorPos(window, &mouseX, &mouseY);
+                    
+                    // 获取窗口尺寸
+                    int windowWidth, windowHeight;
+                    glfwGetFramebufferSize(window, &windowWidth, &windowHeight);
+                    
+                    // 将鼠标坐标转换为OpenGL坐标（考虑UI区域偏移）
                 float glX, glY;
-                float currentAspect = (float)windowWidth / (float)windowHeight;
+                const float uiWidthPixels = 300.0f;
+                const float simulationWidth = windowWidth - uiWidthPixels;
+                
+                // 调整鼠标X坐标，减去UI区域宽度
+                float adjustedMouseX = mouseX - uiWidthPixels;
+                if (adjustedMouseX < 0) adjustedMouseX = 0; // 确保不超出模拟区域
+                
+                float currentAspect = (float)simulationWidth / (float)windowHeight;
                 if (currentAspect > 1.0f) {
-                    glX = (mouseX / windowWidth * 2.0f - 1.0f) * currentAspect;
+                    glX = (adjustedMouseX / simulationWidth * 2.0f - 1.0f) * currentAspect;
                     glY = 1.0f - mouseY / windowHeight * 2.0f;
                 } else {
-                    glX = mouseX / windowWidth * 2.0f - 1.0f;
+                    glX = adjustedMouseX / simulationWidth * 2.0f - 1.0f;
                     glY = (1.0f - mouseY / windowHeight * 2.0f) / currentAspect;
                 }
-                
-                // 在鼠标位置生成圆形
-                objList.push_back(std::make_unique<Circle>(glX, glY, newCircleRadius, 100));
-                objList.back()->setMass(newCircleMass);
-                
+                    
+                    // 在鼠标位置生成圆形
+                    objList.emplace_back(std::make_unique<Circle>(glX, glY, newCircleRadius, 100));
+                    objList.back()->setMass(newCircleMass);
+                }
             }
             
             mouseWasPressed = (mouseState == GLFW_PRESS);

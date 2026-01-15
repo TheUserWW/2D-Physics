@@ -8,7 +8,7 @@
 
 class Circle : public Object {
 public:
-    Circle(float cx, float cy, float rad, int r) : radius(rad), res(r) {
+    explicit Circle(float cx, float cy, float rad, int r) : radius(rad), res(r) {
         setPosition(cx, cy);
         setMass(1.0f); // 默认质量
     }
