@@ -1,7 +1,17 @@
 cmake_minimum_required(VERSION 3.31)
 project(2DPhysics)
 
-set(CMAKE_CXX_STANDARD 20)
+set(CMAKE_CXX_STANDARD 23)
+
+# Set optimization level to O2 for Release builds
+if(CMAKE_BUILD_TYPE STREQUAL "Release")
+    set(CMAKE_CXX_FLAGS_RELEASE "-O2")
+endif()
+
+# Enable static linking for Windows to avoid DLL dependencies
+if(WIN32)
+    set(CMAKE_EXE_LINKER_FLAGS "-static -static-libgcc -static-libstdc++")
+endif()
 
 # Enable C++20 modules support for GCC
 if(CMAKE_CXX_COMPILER_ID MATCHES "GNU")
@@ -64,7 +74,7 @@ if(WIN32)
     target_link_libraries(2DPhysics ${GLEW_LIB_DIR}/glew32s.lib)
     
     # Link GLFW and other required libraries
-    target_link_libraries(2DPhysics ${GLFW_LIB_DIR}/libglfw3.a opengl32 gdi32)
+    target_link_libraries(2DPhysics ${GLFW_LIB_DIR}/libglfw3.a opengl32 gdi32 stdc++exp)
     
     # Add static compilation flags for GLEW
     target_compile_definitions(2DPhysics PRIVATE GLEW_STATIC)
