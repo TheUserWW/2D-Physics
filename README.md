@@ -17,11 +17,10 @@ A real-time 2D physics simulation engine built with C++ and OpenGL, featuring gr
 2DPhysics/
 ├── src/
 │   ├── main.cpp          # Main application and rendering loop
+├── include/
 │   ├── axioms.h          # Physics constants and field definitions
 │   ├── Circle.h          # Circle object implementation
 │   ├── polygon.h         # Polygon object implementation
-│   ├── textInfo.h        # Text rendering utilities
-│   └── textInfo.cpp      # Text rendering implementation
 ├── Dependencies/         # External libraries (GLEW, GLFW, ImGui)
 ├── CMakeLists.txt        # CMake build configuration
 └── 2DPhysics.rc          # Windows resource file
