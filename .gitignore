@@ -1,0 +1,54 @@
+# Build files
+build/
+*.sln
+*.vcxproj
+*.vcxproj.filters
+*.vcxproj.user
+*.suo
+*.sdf
+*.opensdf
+*.aps
+
+# IDE files
+.idea/
+.vs/
+.vscode/
+
+
+# Object files
+*.obj
+*.o
+*.pch
+
+# Intermediate files
+*.ilk
+*.pdb
+*.idb
+
+# Log files
+*.log
+
+# Temporary files
+*.tmp
+*.temp
+*~
+
+# OS generated files
+Thumbs.db
+.DS_Store
+
+
+
+# MacOS generated files
+.DS_Store
+
+# Linux generated files
+*~
+
+# IDE files
+.idea/
+.vs/
+.vscode/
+
+# Test files
+Testing/
