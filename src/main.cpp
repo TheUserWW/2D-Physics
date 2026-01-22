@@ -42,6 +42,7 @@ float dragOffsetY = 0.0f;
 double lastDragTime = 0.0f;
 float lastDragX = 0.0f;
 float lastDragY = 0.0f;
+bool showAboutWindow = false;
 
 void ApplyUniversalGravitation(std::vector<std::unique_ptr<Object>>& list) {
     for (size_t i = 0; i < list.size(); i++) {
@@ -238,10 +239,10 @@ int main(void)
             }
             
             ImGui::Text("Direction Reference:");
-            ImGui::Text("↑ North: 90°");
-            ImGui::Text("→ East: 0°");
-            ImGui::Text("↓ South: 270°");
-            ImGui::Text("← West: 180°");
+            ImGui::Text("North: 90°");
+            ImGui::Text("East: 0°");
+            ImGui::Text("South: 270°");
+            ImGui::Text("West: 180°");
             
             ImGui::Text("Quick Direction:");
             if (ImGui::Button("Up##1")) { 
@@ -287,7 +288,7 @@ int main(void)
                 ef.magnitude = static_cast<double>(tempMagnitude);
             }
 
-            // 计算方向角度以便显示
+
             float directionAngle = 0.0f;
             if (ef.direction[0] != 0.0f || ef.direction[1] != 0.0f) {
                 directionAngle = atan2f(ef.direction[1], ef.direction[0]) * 180.0f / PI;
@@ -295,7 +296,7 @@ int main(void)
             }
             ImGui::Text("Direction: %.1f°", directionAngle);
             
-            // 临时变量用于滑动条
+
             static float tempDirectionAngle = directionAngle;
             if (ImGui::SliderFloat("##ElectricFieldDirection", &tempDirectionAngle, 0.0f, 360.0f, "%.1f°")) {
                 float angleRad = tempDirectionAngle * PI / 180.0f;
@@ -335,22 +336,32 @@ int main(void)
 
 
 
-        if (ImGui::CollapsingHeader("Objects", ImGuiTreeNodeFlags_DefaultOpen)) {
+        if (ImGui::CollapsingHeader("Object", ImGuiTreeNodeFlags_DefaultOpen)) {
+            if (ImGui::Button("Delete all objects")) { objList.erase(objList.begin(),objList.end()); }
             ImGui::Text("Total Objects: %zu", objList.size());
             
             for (size_t i = 0; i < objList.size(); ++i) {
-                ImGui::Text("Object %zu:", i + 1);
+                ImGui::Text("Obj %zu:", i + 1);
                 ImGui::SameLine();
                 
-                float currentMass = objList[i]->get_mass();
+                float currentMass = objList.at(i)->get_mass();
                 std::string massLabel = "##Mass" + std::to_string(i);
-                ImGui::SetNextItemWidth(100.0f);
+                ImGui::SetNextItemWidth(85.0f);
                 if (ImGui::DragFloat(massLabel.c_str(), &currentMass, 0.1f, 0.1f, 100.0f, "%.2f kg")) {
                     objList[i]->setMass(currentMass);
                 }
                 ImGui::SameLine();
+                float currentCharge = objList.at(i)->get_charge();
+                std::string chargeLabel = "##Charge" + std::to_string(i);
+                ImGui::SetNextItemWidth(80.0f);
+                if (ImGui::DragFloat(chargeLabel.c_str(), &currentCharge, 0.1f, 0.1f, 100.0f, "%.2f C")) {
+                    objList[i]->setCharge(currentCharge);
+                }
+
+
+                ImGui::SameLine();
                 
-                std::string deleteButtonLabel = "Delete##" + std::to_string(i);
+                std::string deleteButtonLabel = "X##" + std::to_string(i);
                 if (ImGui::Button(deleteButtonLabel.c_str())) {
                     objList.erase(objList.begin() + i);
                     break;
@@ -390,7 +401,7 @@ int main(void)
                     circleButtonPressed = true;
                 }
                 ImGui::SameLine();
-                ImGui::Text("Click to activate circle creation tool");
+                ImGui::Text("Click to activate circle\ncreation tool");
             }
             
             ImGui::Text("Status: %s", circleCreationMode ? "Active" : "Inactive");
@@ -425,13 +436,66 @@ int main(void)
             if (ImGui::Button("-5C##Charge")) { newCircleCharge = -5.0f; }
         }
         
+        ImGui::Separator();
+        
+        if (ImGui::Button("About")) {
+            showAboutWindow = true;
+        }
+        
         ImGui::End();
+        
+        // About
+        if (showAboutWindow) {
+            ImGui::Begin("About", &showAboutWindow, ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoCollapse);
+            
+            ImGui::Text("2D Physics");
+            ImGui::Text("Version 0.0.6");
+            ImGui::Separator();
+            ImGui::Text("Project Repository:");
+            ImGui::TextColored(ImVec4(0.0f, 0.6f, 1.0f, 1.0f), "https://github.com/TheUserWW/2D-Physics.git");
+            if (ImGui::IsItemHovered())
+            {
+                ImGui::SetMouseCursor(ImGuiMouseCursor_Hand);
+                if (ImGui::IsMouseDoubleClicked(0))
+                {
+                    ShellExecuteA(NULL, "open", "https://github.com/TheUserWW/2D-Physics.git", NULL, NULL, SW_SHOWNORMAL);
+                }
+            }
+            ImGui::Separator();
+            ImGui::Text("License: MIT");
+            ImGui::Text("Permission is hereby granted, free of charge, to any person obtaining a copy");
+            ImGui::Text("of this software and associated documentation files (the \"Software\"), to deal");
+            ImGui::Text("in the Software without restriction, including without limitation the rights");
+            ImGui::Text("to use, copy, modify, merge, publish, distribute, sublicense, and/or sell");
+            ImGui::Text("copies of the Software, and to permit persons to whom the Software is");
+            ImGui::Text("furnished to do so, subject to the following conditions:");
+            ImGui::Text("");
+            ImGui::Text("The above copyright notice and this permission notice shall be included in all");
+            ImGui::Text("copies or substantial portions of the Software.");
+            ImGui::Text("");
+            ImGui::Text("THE SOFTWARE IS PROVIDED \"AS IS\", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR");
+            ImGui::Text("IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,");
+            ImGui::Text("FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE");
+            ImGui::Text("AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER");
+            ImGui::Text("LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,");
+            ImGui::Text("OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE");
+            ImGui::Text("SOFTWARE.");
+            ImGui::Separator();
+            
+            ImGui::End();
+        }
         
 
 
         glClear(GL_COLOR_BUFFER_BIT);
 
 
+        // 每次循环都重新计算当前的aspect值
+        int currentWidth, currentHeight;
+        glfwGetFramebufferSize(window, &currentWidth, &currentHeight);
+        const float currentSimulationWidth = currentWidth - uiWidthPixels;
+        float currentAspect = (float)currentSimulationWidth / (float)currentHeight;
+        
         if (!objList.empty()) {
             ApplyUniversalGravitation(objList);
             ApplyCoulombForce(objList);
@@ -446,12 +510,12 @@ int main(void)
                     apply_electric_field(&objList.at(i)->getEntity(), &ef);
                 }
                 
-                objList.at(i)->update(deltaTime, gf, aspect);
+                objList.at(i)->update(deltaTime, gf, currentAspect);
                 
                 if (ef.magnitude > 0.0f) {
                     Circle* circle = dynamic_cast<Circle*>(objList.at(i).get());
                     if (circle) {
-                        circle->update(deltaTime, ef, aspect);
+                        circle->update(deltaTime, ef, currentAspect);
                     }
                 }
             }
@@ -516,26 +580,49 @@ int main(void)
                 }
             }
             else if (mouseState == GLFW_PRESS && isDragging && draggedObjectIndex != -1) {
-                objList.at(draggedObjectIndex)->setPosition(glX - dragOffsetX, glY - dragOffsetY);
+                float newX = glX - dragOffsetX;
+                float newY = glY - dragOffsetY;
+                
+                objList.at(draggedObjectIndex)->setPosition(newX, newY);
                 objList.at(draggedObjectIndex)->setVelocity(0.0f, 0.0f);
                 
-                lastDragX = glX - dragOffsetX;
-                lastDragY = glY - dragOffsetY;
-                lastDragTime = glfwGetTime();
+                // 只在鼠标实际移动时更新位置和时间
+                float distanceMoved = sqrt(pow(newX - lastDragX, 2) + pow(newY - lastDragY, 2));
+                if (distanceMoved > 0.001f) {
+                    lastDragX = newX;
+                    lastDragY = newY;
+                    lastDragTime = glfwGetTime();
+                }
             }
             else if (mouseState == GLFW_RELEASE && isDragging) {
                 double currentTime = glfwGetTime();
                 float dragDeltaTime = static_cast<float>(currentTime - lastDragTime);
                 
-                if (dragDeltaTime > 0.0f && draggedObjectIndex != -1) {
-                    float velocityX = (glX - lastDragX) / dragDeltaTime;
-                    float velocityY = (glY - lastDragY) / dragDeltaTime;
+                if (dragDeltaTime > 0.01f && draggedObjectIndex != -1) {
+                    // 计算鼠标移动距离
+                    float deltaX = glX - lastDragX;
+                    float deltaY = glY - lastDragY;
+                    float moveDistance = sqrt(deltaX * deltaX + deltaY * deltaY);
                     
-                    const float maxVelocity = 5.0f;
-                    velocityX = std::clamp(velocityX, -maxVelocity, maxVelocity);
-                    velocityY = std::clamp(velocityY, -maxVelocity, maxVelocity);
-                    
-                    objList.at(draggedObjectIndex)->setVelocity(velocityX, velocityY);
+                    // 只有当鼠标实际移动了一定距离且时间差合理时才计算速度
+                    if (moveDistance > 0.02f) {
+                        float velocityX = deltaX / dragDeltaTime;
+                        float velocityY = deltaY / dragDeltaTime;
+                        
+                        const float maxVelocity = 5.0f;
+                        velocityX = std::clamp(velocityX, -maxVelocity, maxVelocity);
+                        velocityY = std::clamp(velocityY, -maxVelocity, maxVelocity);
+                        
+                        objList.at(draggedObjectIndex)->setVelocity(velocityX, velocityY);
+                    } else {
+                        // 如果只是简单点击释放，保持速度为0
+                        objList.at(draggedObjectIndex)->setVelocity(0.0f, 0.0f);
+                    }
+                } else {
+                    // 如果时间差太小，说明是简单点击，保持速度为0
+                    if (draggedObjectIndex != -1) {
+                        objList.at(draggedObjectIndex)->setVelocity(0.0f, 0.0f);
+                    }
                 }
                 
                 isDragging = false;

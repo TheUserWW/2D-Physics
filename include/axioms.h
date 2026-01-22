@@ -28,6 +28,8 @@ public:
         acc[1] = static_cast<float>(entity.acceleration[1]);
         return acc;
     }
+
+
     float get_position_x() const { return static_cast<float>(entity.position[0]); }
     float get_position_y() const { return static_cast<float>(entity.position[1]); }
 
@@ -159,7 +161,7 @@ public:
 
     bool getMovementStatus() const { return enable_movement; }
     
-    // 提供访问entity的方法
+
     Entity& getEntity() { return entity; }
     const Entity& getEntity() const { return entity; }
 

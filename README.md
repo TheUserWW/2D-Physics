@@ -119,4 +119,4 @@ cmake --build . --config Release
 - **GLFW**: Download link: https://www.glfw.org/download.html
 - **GLEW**: Download link: https://glew.sourceforge.net/
 - **ImGui**: Project link: https://github.com/ocornut/imgui
-- **cPhysics**: Custom physics library for field calculations
+- **cPhysics**: Project link: https://github.com/TheUserWW/cPhysics.git
