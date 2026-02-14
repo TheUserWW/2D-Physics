@@ -3,6 +3,10 @@
 A real-time 2D physics simulation engine built with C++ and OpenGL, featuring gravitational and electric field simulations with interactive object manipulation.
 <img width="1624" height="947" alt="image" src="https://github.com/user-attachments/assets/99867237-874f-4416-9fb7-ce4e8a8b8d61" />
 
+Softpedia : https://www.softpedia.com/publisher/TheUserWW-109801.html
+ 
+Sourceforge : https://sourceforge.net/projects/twodphysics/
+
 ## Features
 
 - **Real-time Physics Simulation**: Accurate gravitational and electric field calculations
